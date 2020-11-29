@@ -2,9 +2,10 @@
 pragma solidity ^0.6.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./math.sol";
 import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
 
-contract GelatoOracleAggregator is Ownable{
+contract GelatoOracleAggregator is Ownable, DSMath{
 
     address private ETH_ADDRESS;
     address private USD_ADDRESS;
@@ -118,7 +119,7 @@ contract GelatoOracleAggregator is Ownable{
                 
                 returnAmount = stableCoinAddress != address(0) ?
                 matchStableCoinDecimal(stableCoinAddress, amount, nrOfDecimals, 0, returnRate_a, 1) :
-                amount * returnRate_a;
+                mul(amount, returnRate_a);
 
                 nrOfDecimals = stableCoinAddress != address(0) ?
                 nrOfDecimals_usd[stableCoinAddress] :
@@ -137,13 +138,11 @@ contract GelatoOracleAggregator is Ownable{
                  
                 returnAmount = stableCoinAddress != address(0) ?
                 matchStableCoinDecimal(stableCoinAddress, amount, nrOfDecimals, nrOfDecimals, returnRate_a, returnRate_b) :
-                amount * (returnRate_a * 10**nrOfDecimals) / returnRate_b;
+                mul(amount, mul(returnRate_a, 10**nrOfDecimals)) / returnRate_b;
 
                 nrOfDecimals = stableCoinAddress != address(0) ?
                 nrOfDecimals_usd[stableCoinAddress] :
                 nrOfDecimals;
-
-                returnAmount = amount * (returnRate_a * 10**nrOfDecimals) / returnRate_b;
 
                 return (returnAmount, nrOfDecimals);
 
@@ -158,7 +157,7 @@ contract GelatoOracleAggregator is Ownable{
                 (returnRate_a, nrOfDecimals) = getRate(tokenAddress_a, pair_a);
                 (returnRate_b, ) = getRate(tokenAddress_b, pair_b);
                 
-                returnAmount = amount * (returnRate_a * 10**nrOfDecimals) / returnRate_b;
+                returnAmount = mul(amount, mul(returnRate_a, 10**nrOfDecimals)) / returnRate_b;
 
                 return (returnAmount, nrOfDecimals);
                 
@@ -170,9 +169,9 @@ contract GelatoOracleAggregator is Ownable{
                 (returnRate_b, ) = getRate(tokenAddress_b, pair_b);
                 (uint returnRate_ETHUSD,) = getRate(ETH_ADDRESS, USD_ADDRESS);
                 
-                uint returnRate_aUSD = returnRate_a * returnRate_ETHUSD;
+                uint returnRate_aUSD = mul(returnRate_a, returnRate_ETHUSD);
 
-                returnAmount = amount * returnRate_aUSD / returnRate_b;
+                returnAmount = mul(amount, returnRate_aUSD) / returnRate_b;
                 
                 return (returnAmount, nrOfDecimals);
                 
@@ -184,9 +183,9 @@ contract GelatoOracleAggregator is Ownable{
                 (returnRate_b, ) = getRate(tokenAddress_b, pair_b);
                 (uint returnRate_USDETH, uint nrOfDecimals_USDETH) = getRate(USD_ADDRESS, ETH_ADDRESS);
                 
-                uint returnRate_aETH = returnRate_a * returnRate_USDETH;
+                uint returnRate_aETH = mul(returnRate_a, returnRate_USDETH);
 
-                returnAmount = amount * returnRate_aETH / returnRate_b * 10 ** (nrOfDecimals_USDETH - nrOfDecimals);
+                returnAmount = mul(mul(amount, returnRate_aETH), 10 ** (sub(nrOfDecimals_USDETH,  nrOfDecimals))) / returnRate_b;
                 
                 return (returnAmount, nrOfDecimals_USDETH);
             }
@@ -268,14 +267,13 @@ contract GelatoOracleAggregator is Ownable{
         view 
         returns (uint returnAmount) {
             uint div = nrOfDecimals_usd[stableCoinAddress] > nrOfDecimals ? 
-            10 ** ( nrOfDecimals_usd[stableCoinAddress] - nrOfDecimals) : 
-            10 ** (nrOfDecimals -  nrOfDecimals_usd[stableCoinAddress]);
+            10 ** (sub(nrOfDecimals_usd[stableCoinAddress], nrOfDecimals)) : 
+            10 ** (sub(nrOfDecimals, nrOfDecimals_usd[stableCoinAddress]));
 
             returnAmount = nrOfDecimals_usd[stableCoinAddress] > nrOfDecimals ? 
-            amount * (returnRate_a * 10**padding) / returnRate_b * div : 
-            amount * (returnRate_a * 10**padding) / returnRate_b / div;
+            mul(amount, mul(returnRate_a, 10**padding)) / mul(returnRate_b, div) : 
+            mul(amount, mul(returnRate_a, 10**padding)) / returnRate_b / div;
 
             return (returnAmount);
     }
 }
-
